@@ -57,7 +57,7 @@ function videojs_admin_menu($menu)
 function render_media($content, $picture)
 {
 	global $template, $picture, $page, $conf, $user, $refresh;
-	//print_r( $picture['current']);
+	print_r( $picture['current']);
 	// do nothing if the current picture is actually an image !
 	if ( (array_key_exists('src_image', @$picture['current'])
 		&& @$picture['current']['src_image']->is_original()) )
@@ -84,6 +84,9 @@ function render_media($content, $picture)
 	$fileinfo = $getID3->analyze($picture['current']['path']);
 	//print "getID3\n";
 	//print_r($fileinfo);
+	$sources=array( 
+	# array ('url' => 'http://1.2.3.4/', 'type' => 'webm') 
+	);
 
 	$extension = strtolower(get_extension($picture['current']['path']));
 	if ($extension == "m4v")
@@ -94,8 +97,21 @@ function render_media($content, $picture)
 	{
 		$extension = "webm4";
 	}
+	else if ($extension == "ogv")
+	{
+		$extension = "ogg";
+	}
 	//print "extension\n";
 	//print_r($extension);
+
+	$parts = pathinfo($picture['current']['element_url']);
+	$poster = getposterfile (Array(
+			$fileinfo['filepath']."/".$parts['filename'].".png" => get_gallery_home_url() . $parts['dirname'] . "/".$parts['filename'].".png",
+			$fileinfo['filepath']."/thumbnail/TN-".$parts['filename'].".jpg" => get_gallery_home_url() . $parts['dirname'] . "/thumbnail/TN-".$parts['filename'].".jpg",
+			$fileinfo['filepath']."/".$parts['filename'].".jpg" => get_gallery_home_url() . $parts['dirname'] . "/".$parts['filename'].".jpg",
+			$fileinfo['filepath']."/thumbnail/TN-".$parts['filename'].".png" => get_gallery_home_url() . $parts['dirname'] . "/thumbnail/TN-".$parts['filename'].".png",
+			)); 
+	//print $poster;
 
 	if(isset($fileinfo['video']))
 	{
@@ -119,7 +135,14 @@ function render_media($content, $picture)
 	}
 	else // Not a supported video format or an image
 	{
-		return $content;
+		if ( !isset($width) || !isset($height))
+		{
+			// If guess was unsuccessful, fallback to default 16/9 resolution
+			// This is the case for ogv video for example.
+			$width = $MAX_WIDTH;
+			$height = intval( 9 * ($width / 16 ));
+		}
+		#	return $content;
 	}
 
 	// Resize if video is too large
@@ -152,18 +175,6 @@ function render_media($content, $picture)
 		array('vjs_content' => dirname(__FILE__)."/template/vjs-player.tpl")
 	);
 
-	$parts = pathinfo($picture['current']['element_url']);
-	$poster = $fileinfo['filepath']  ."/thumbnail/TN-" . $parts['filename'] . ".jpg";
-	// Try to guess the poster extension
-	if (file_exists($poster))
-	{
-		$poster = get_gallery_home_url() . $parts['dirname'] . "/thumbnail/TN-" . $parts['filename'] . ".jpg";
-	}
-	else
-	{
-		$poster = get_gallery_home_url() . $parts['dirname'] . "/thumbnail/TN-" . $parts['filename'] . ".png";
-	}
-	//print $poster;
 
 	// Genrate HTML5 tags
 	// Why the data-setup attribute does not work if only one video
@@ -182,6 +193,7 @@ function render_media($content, $picture)
 	}
 	$options .= ' preload="'. $preload .'"';
 
+
 	// Assign the template variables
 	// We use here the piwigo's get_gallery_home_url function to build
 	// the full URL as suggested by videojs for flash fallback compatibility
@@ -191,6 +203,7 @@ function render_media($content, $picture)
 			'VIDEOJS_POSTER_URL'	=> $poster,
 			'VIDEOJS_PATH'		=> VIDEOJS_PATH,
 			'VIDEOJS_FULLPATH'	=> realpath(dirname(__FILE__)),
+			'VIDEOJS_SOURCES'	=> $sources,
 			'WIDTH'			=> $width,
 			'HEIGHT'		=> $height,
 			'TYPE'			=> $extension,
@@ -215,6 +228,15 @@ function get_mimetype_icon ($location, $element_info)
 function strbool($value)
 {
     return $value ? 'true' : 'false';
+}
+
+function getposterfile($file_list) 
+{
+	foreach ($file_list as $file=>$url) {
+		print $file."=>".$url."<br/>\n";
+		if (file_exists($file)) return $url;
+	}
+	return '';
 }
 
 ?>
